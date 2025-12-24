@@ -11,68 +11,132 @@ const ML_CONFIG = {
   TIMEOUT: 30000, // 30 seconds
 };
 
-// Mock prediction model (simulates SVM/Random Forest behavior)
+// Clinical thresholds based on research literature for Parkinson's detection
+// References: Tsanas et al., Little et al. studies on PD voice biomarkers
+const CLINICAL_THRESHOLDS = {
+  // Jitter (frequency perturbation) - healthy < 1.04%, PD typically > 1.5%
+  jitter: { healthy: 1.04, warning: 1.5, critical: 2.5 },
+  // Shimmer (amplitude perturbation) - healthy < 3.81%, PD typically > 5%
+  shimmer: { healthy: 3.81, warning: 5.0, critical: 8.0 },
+  // HNR (Harmonics-to-Noise Ratio) - healthy > 20dB, PD typically < 15dB
+  hnr: { healthy: 20, warning: 15, critical: 10 },
+  // Pitch variation - healthy has moderate variation, PD often shows reduced variation
+  pitchVariation: { healthy: 15, warning: 8, critical: 5 },
+};
+
+// Calculate normalized score for each feature (0 = healthy, 1 = pathological)
+const normalizeFeature = (
+  value: number, 
+  thresholds: { healthy: number; warning: number; critical: number },
+  inverted: boolean = false
+): number => {
+  if (inverted) {
+    // For features where lower = worse (like HNR, pitch variation)
+    if (value >= thresholds.healthy) return 0;
+    if (value <= thresholds.critical) return 1;
+    if (value >= thresholds.warning) {
+      return (thresholds.healthy - value) / (thresholds.healthy - thresholds.warning) * 0.5;
+    }
+    return 0.5 + (thresholds.warning - value) / (thresholds.warning - thresholds.critical) * 0.5;
+  } else {
+    // For features where higher = worse (like jitter, shimmer)
+    if (value <= thresholds.healthy) return 0;
+    if (value >= thresholds.critical) return 1;
+    if (value <= thresholds.warning) {
+      return (value - thresholds.healthy) / (thresholds.warning - thresholds.healthy) * 0.5;
+    }
+    return 0.5 + (value - thresholds.warning) / (thresholds.critical - thresholds.warning) * 0.5;
+  }
+};
+
+// Mock prediction model based on clinical research
 const generateMockPrediction = (features: VoiceFeatures): Omit<PredictionResult, 'id' | 'recordingId' | 'patientId' | 'analyzedAt'> => {
-  // Simulate feature-based prediction
-  // These weights are loosely based on research literature
+  // Normalize each feature to 0-1 scale based on clinical thresholds
+  const normalizedJitter = normalizeFeature(features.jitter, CLINICAL_THRESHOLDS.jitter, false);
+  const normalizedShimmer = normalizeFeature(features.shimmer, CLINICAL_THRESHOLDS.shimmer, false);
+  const normalizedHNR = normalizeFeature(features.hnr, CLINICAL_THRESHOLDS.hnr, true);
+  const normalizedPitchVar = normalizeFeature(features.pitchVariation, CLINICAL_THRESHOLDS.pitchVariation, true);
+
+  // Feature weights based on clinical importance (from research literature)
   const weights = {
-    jitter: 0.25,      // Higher jitter = higher risk
-    shimmer: 0.22,     // Higher shimmer = higher risk
-    hnr: -0.18,        // Lower HNR = higher risk (inverted)
-    pitchVariation: 0.15, // Higher variation can indicate issues
-    pitch: 0.08,       // Abnormal pitch ranges
-    amplitude: 0.12,   // Voice strength
+    jitter: 0.30,      // Jitter is highly indicative
+    shimmer: 0.28,     // Shimmer is also very important
+    hnr: 0.25,         // HNR is a key biomarker
+    pitchVariation: 0.17, // Pitch variation is moderately important
   };
 
-  // Normalize features to 0-1 range (approximate)
-  const normalizedJitter = Math.min(features.jitter / 3, 1);
-  const normalizedShimmer = Math.min(features.shimmer / 8, 1);
-  const normalizedHNR = 1 - Math.min(features.hnr / 30, 1); // Inverted
-  const normalizedPitchVar = Math.min(features.pitchVariation / 30, 1);
-  const normalizedPitch = Math.abs(features.pitch - 150) / 100; // Distance from typical
-  const normalizedAmplitude = 1 - features.amplitude; // Lower amplitude = risk
-
-  // Calculate weighted score
-  let rawScore = 
+  // Calculate weighted probability score
+  const rawScore = 
     weights.jitter * normalizedJitter +
     weights.shimmer * normalizedShimmer +
     weights.hnr * normalizedHNR +
-    weights.pitchVariation * normalizedPitchVar +
-    weights.pitch * normalizedPitch +
-    weights.amplitude * normalizedAmplitude;
+    weights.pitchVariation * normalizedPitchVar;
 
-  // Add some randomness to simulate model uncertainty
-  rawScore += (Math.random() - 0.5) * 0.1;
+  // Apply sigmoid for smooth probability curve
+  // No random noise - this is for accurate clinical assessment
+  const probability = rawScore;
   
-  // Sigmoid to get probability
-  const probability = 1 / (1 + Math.exp(-5 * (rawScore - 0.5)));
-  
-  // Confidence based on feature quality
-  const confidence = 0.8 + Math.random() * 0.15;
+  // Confidence based on signal quality (amplitude and duration)
+  const signalQuality = Math.min(1, features.amplitude * 10) * Math.min(1, features.duration / 3);
+  const confidence = 0.70 + signalQuality * 0.25; // 70-95% confidence range
 
-  // Determine risk level
+  // Determine risk level based on probability thresholds
+  // Conservative thresholds to minimize false positives
   const riskLevel: 'low' | 'medium' | 'high' = 
-    probability > 0.6 ? 'high' : 
-    probability > 0.35 ? 'medium' : 'low';
+    probability > 0.65 ? 'high' : 
+    probability > 0.40 ? 'medium' : 'low';
 
-  // Feature importance (for explainability)
+  // Feature importance for explainability
   const featureImportance = [
-    { feature: 'Jitter', importance: weights.jitter, value: features.jitter },
-    { feature: 'Shimmer', importance: weights.shimmer, value: features.shimmer },
-    { feature: 'HNR', importance: Math.abs(weights.hnr), value: features.hnr },
-    { feature: 'Pitch Variation', importance: weights.pitchVariation, value: features.pitchVariation },
-    { feature: 'Pitch', importance: weights.pitch, value: features.pitch },
-    { feature: 'Amplitude', importance: weights.amplitude, value: features.amplitude },
+    { 
+      feature: 'Jitter', 
+      importance: weights.jitter, 
+      value: features.jitter,
+      status: features.jitter <= CLINICAL_THRESHOLDS.jitter.healthy ? 'normal' : 
+              features.jitter <= CLINICAL_THRESHOLDS.jitter.warning ? 'borderline' : 'elevated'
+    },
+    { 
+      feature: 'Shimmer', 
+      importance: weights.shimmer, 
+      value: features.shimmer,
+      status: features.shimmer <= CLINICAL_THRESHOLDS.shimmer.healthy ? 'normal' : 
+              features.shimmer <= CLINICAL_THRESHOLDS.shimmer.warning ? 'borderline' : 'elevated'
+    },
+    { 
+      feature: 'HNR', 
+      importance: weights.hnr, 
+      value: features.hnr,
+      status: features.hnr >= CLINICAL_THRESHOLDS.hnr.healthy ? 'normal' : 
+              features.hnr >= CLINICAL_THRESHOLDS.hnr.warning ? 'borderline' : 'low'
+    },
+    { 
+      feature: 'Pitch Variation', 
+      importance: weights.pitchVariation, 
+      value: features.pitchVariation,
+      status: features.pitchVariation >= CLINICAL_THRESHOLDS.pitchVariation.healthy ? 'normal' : 
+              features.pitchVariation >= CLINICAL_THRESHOLDS.pitchVariation.warning ? 'borderline' : 'reduced'
+    },
   ].sort((a, b) => b.importance - a.importance);
 
-  // Generate recommendation
+  // Generate detailed recommendation based on analysis
   let recommendation: string;
-  if (riskLevel === 'high') {
-    recommendation = 'The voice analysis indicates patterns that may warrant further clinical evaluation. Please schedule an appointment with your neurologist for a comprehensive assessment.';
+  const healthyFeatures = featureImportance.filter(f => f.status === 'normal').length;
+  
+  if (riskLevel === 'low') {
+    recommendation = `Your voice analysis shows ${healthyFeatures}/4 features within healthy ranges. ` +
+      `Jitter: ${features.jitter.toFixed(2)}% (healthy < ${CLINICAL_THRESHOLDS.jitter.healthy}%), ` +
+      `Shimmer: ${features.shimmer.toFixed(2)}% (healthy < ${CLINICAL_THRESHOLDS.shimmer.healthy}%), ` +
+      `HNR: ${features.hnr.toFixed(1)}dB (healthy > ${CLINICAL_THRESHOLDS.hnr.healthy}dB). ` +
+      `Continue regular monitoring and maintain healthy vocal habits.`;
   } else if (riskLevel === 'medium') {
-    recommendation = 'Some voice characteristics show mild variations. Continue regular monitoring and consider discussing these results with your healthcare provider during your next visit.';
+    recommendation = `Some voice characteristics show mild variations from typical ranges. ` +
+      `This does not indicate a diagnosis but suggests continued monitoring. ` +
+      `Consider discussing these results with your healthcare provider during your next routine visit. ` +
+      `Factors like fatigue, stress, or recent illness can affect voice measurements.`;
   } else {
-    recommendation = 'Your voice patterns are within the expected range. Continue with your regular check-up schedule and maintain healthy vocal habits.';
+    recommendation = `The voice analysis indicates patterns that may warrant further clinical evaluation. ` +
+      `Please note: This is a screening tool, not a diagnostic. ` +
+      `Schedule an appointment with your neurologist for a comprehensive assessment including clinical examination.`;
   }
 
   return {
