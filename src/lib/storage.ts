@@ -219,6 +219,7 @@ export const initializeDemoData = (): void => {
       const session: TestSession = {
         id: `demo-session-${patient.id}-${i}`,
         patientId: patient.id,
+        completedAt: date.toISOString(),
         recording: {
           id: `demo-recording-${patient.id}-${i}`,
           patientId: patient.id,
