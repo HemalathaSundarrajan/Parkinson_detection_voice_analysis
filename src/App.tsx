@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import VoiceRecording from "./pages/VoiceRecording";
+import TestHistory from "./pages/TestHistory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/dashboard/record" element={<VoiceRecording />} />
+            <Route path="/dashboard/history" element={<TestHistory />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

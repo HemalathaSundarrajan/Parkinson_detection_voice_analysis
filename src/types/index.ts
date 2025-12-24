@@ -76,6 +76,7 @@ export interface TestSession {
   patientId: string;
   recording: VoiceRecording;
   prediction: PredictionResult;
+  completedAt: string;
   notes?: string;
   reviewedByDoctor?: boolean;
   doctorNotes?: string;

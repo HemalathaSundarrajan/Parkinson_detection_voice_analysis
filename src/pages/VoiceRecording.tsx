@@ -8,9 +8,11 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { getPrediction } from '@/lib/mlService';
 import { createTestSession, createAlert } from '@/lib/storage';
-import { PredictionResult } from '@/types';
+import { PredictionResult, VoiceFeatures } from '@/types';
 import { Mic, Square, Loader2, CheckCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import RecordingGuidelines from '@/components/RecordingGuidelines';
+import FeatureBreakdown from '@/components/FeatureBreakdown';
 
 const VoiceRecording = () => {
   const { user } = useAuth();
@@ -20,9 +22,11 @@ const VoiceRecording = () => {
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<PredictionResult | null>(null);
+  const [lastFeatures, setLastFeatures] = useState<VoiceFeatures | null>(null);
 
   const handleStartRecording = async () => {
     setResult(null);
+    setLastFeatures(null);
     await startRecording();
   };
 
@@ -38,6 +42,7 @@ const VoiceRecording = () => {
       // Save test session
       createTestSession({
         patientId: user.id,
+        completedAt: new Date().toISOString(),
         recording: {
           id: recordingId,
           patientId: user.id,
@@ -60,6 +65,7 @@ const VoiceRecording = () => {
       }
 
       setResult(prediction);
+      setLastFeatures(recordingData.features);
       toast({ title: 'Analysis Complete', description: 'Your voice test has been analyzed successfully.' });
     } catch (err) {
       toast({ title: 'Analysis Failed', description: 'Please try again.', variant: 'destructive' });
@@ -78,10 +84,13 @@ const VoiceRecording = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6 p-4">
       <Button variant="ghost" onClick={() => navigate('/dashboard')} className="gap-2">
         <ArrowLeft className="h-4 w-4" /> Back to Dashboard
       </Button>
+
+      {/* Recording Guidelines */}
+      {!result && <RecordingGuidelines />}
 
       <Card>
         <CardHeader className="text-center">
@@ -152,6 +161,9 @@ const VoiceRecording = () => {
                 <p className="text-muted-foreground">Risk Score</p>
               </div>
             </div>
+
+            {/* Feature Breakdown */}
+            {lastFeatures && <FeatureBreakdown features={lastFeatures} />}
 
             <div className="p-4 rounded-lg bg-muted">
               <h4 className="font-medium mb-2">Recommendation</h4>
