@@ -5,8 +5,8 @@ import { VoiceFeatures, PredictionResult, MLPredictionRequest, MLPredictionRespo
 
 // Configuration for ML API
 const ML_CONFIG = {
-  // Set this to your Python backend URL when ready
-  API_URL: process.env.VITE_ML_API_URL || null,
+  // Set this to your Python backend URL when ready (use VITE_ML_API_URL env variable)
+  API_URL: import.meta.env.VITE_ML_API_URL || null,
   USE_MOCK: true, // Set to false when real API is available
   TIMEOUT: 30000, // 30 seconds
 };
