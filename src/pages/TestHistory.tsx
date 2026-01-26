@@ -21,9 +21,17 @@ const TestHistory = () => {
 
   const sessions = useMemo(() => {
     if (!user) return [];
-    return getTestSessionsByPatient(user.id).sort(
-      (a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
-    );
+    return getTestSessionsByPatient(user.id)
+      .map(session => ({
+        ...session,
+        // Fallback to recording.recordedAt if completedAt is missing
+        completedAt: session.completedAt || session.recording.recordedAt
+      }))
+      .filter(session => {
+        const date = new Date(session.completedAt);
+        return !isNaN(date.getTime());
+      })
+      .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
   }, [user]);
 
   const chartData = useMemo(() => {
