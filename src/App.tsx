@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import VoiceRecording from "./pages/VoiceRecording";
 import TestHistory from "./pages/TestHistory";
 import NotFound from "./pages/NotFound";
+import Chatbot from "./components/Chatbot";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/dashboard/history" element={<TestHistory />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <Chatbot />
         </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>
