@@ -2,18 +2,21 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { getTestSessionsByPatient } from '@/lib/storage';
+import { generateTestReportPDF } from '@/lib/pdfGenerator';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowLeft, Calendar, TrendingUp, TrendingDown, Minus, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { ArrowLeft, Calendar, TrendingUp, TrendingDown, Minus, CheckCircle, AlertTriangle, XCircle, FileDown } from 'lucide-react';
 import { TestSession } from '@/types';
 import { format } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { useToast } from '@/hooks/use-toast';
 
 const TestHistory = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [selectedSession, setSelectedSession] = useState<TestSession | null>(null);
 
   const sessions = useMemo(() => {
@@ -250,6 +253,22 @@ const TestHistory = () => {
                 <h4 className="font-medium mb-2">Recommendation</h4>
                 <p className="text-sm text-muted-foreground">{selectedSession.prediction.recommendation}</p>
               </div>
+
+              {/* Download PDF Button */}
+              <DialogFooter>
+                <Button 
+                  onClick={() => {
+                    if (user && selectedSession) {
+                      generateTestReportPDF(selectedSession, user);
+                      toast({ title: 'Report Downloaded', description: 'Your PDF report has been generated.' });
+                    }
+                  }}
+                  className="w-full gap-2"
+                >
+                  <FileDown className="h-4 w-4" />
+                  Download PDF Report
+                </Button>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>
