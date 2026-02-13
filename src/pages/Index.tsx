@@ -214,7 +214,7 @@ const Index = () => {
             <span className="font-display font-semibold">PD Monitor</span>
           </div>
           <p className="text-sm text-muted-foreground">
-            © 2024 PD Monitor. For educational and research purposes only.
+            © 2025 Hema PD Monitor. For educational and research purposes only.
           </p>
         </div>
       </footer>
